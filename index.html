@@ -59,6 +59,8 @@
   const BASE_SPEED = 120;       // ms per move at start
   const MIN_SPEED = 60;         // fastest speed cap
 
+  const OUTLINE = "#4ecca3";    // same color as the board outline
+
   let snake, dir, nextDir, food, score, speed, timer, dead, paused;
 
   function reset() {
@@ -121,9 +123,28 @@
     draw();
   }
 
+  function drawGrid() {
+    // Colored grid lines in the same color as the board outline
+    ctx.strokeStyle = OUTLINE;
+    ctx.globalAlpha = 0.15;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 1; i < GRID; i++) {
+      const p = i * CELL;
+      ctx.moveTo(p, 0);
+      ctx.lineTo(p, canvas.height);
+      ctx.moveTo(0, p);
+      ctx.lineTo(canvas.width, p);
+    }
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+
   function draw() {
     ctx.fillStyle = "#16213e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawGrid();
 
     // Food
     ctx.fillStyle = "#ff6b6b";
