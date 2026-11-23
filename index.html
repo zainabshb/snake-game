@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Snake Game</title>
+<style>
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #1a1a2e;
+    color: #eee;
+    font-family: "Segoe UI", system-ui, sans-serif;
+  }
+  h1 { margin: 0 0 8px; font-size: 28px; letter-spacing: 2px; }
+  #score { margin-bottom: 12px; font-size: 18px; color: #4ecca3; }
+  #board {
+    background: #16213e;
+    border: 2px solid #4ecca3;
+    border-radius: 4px;
+  }
+  #overlay {
+    position: absolute;
+    padding: 12px 24px;
+    background: rgba(0, 0, 0, 0.75);
+    border-radius: 8px;
+    text-align: center;
+    display: none;
+  }
+  #overlay h2 { margin: 0 0 6px; color: #ff6b6b; }
+  #overlay p { margin: 0; font-size: 14px; color: #ccc; }
+</style>
+</head>
+<body>
+  <h1>🐍 SNAKE</h1>
+  <div id="score">Score: 0</div>
+  <div style="position: relative;">
+    <canvas id="board" width="400" height="400"></canvas>
+    <div id="overlay">
+      <h2>Game Over</h2>
+      <p>Press Space or Enter to restart</p>
+    </div>
+  </div>
+  <p style="color: #889; font-size: 13px;">Arrow keys or WASD to move &middot; P to pause</p>
+
+<script>
+(function () {
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+  const scoreEl = document.getElementById("score");
+  const overlay = document.getElementById("overlay");
+
+  const GRID = 20;              // cells per row/column
+  const CELL = canvas.width / GRID;
+  const BASE_SPEED = 120;       // ms per move at start
+  const MIN_SPEED = 60;         // fastest speed cap
+
+  let snake, dir, nextDir, food, score, speed, timer, dead, paused;
+
+  function reset() {
+    snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
+    dir = { x: 1, y: 0 };
+    nextDir = dir;
+    score = 0;
+    speed = BASE_SPEED;
+    dead = false;
+    paused = false;
+    overlay.style.display = "none";
+    placeFood();
+    updateScore();
+    clearInterval(timer);
+    timer = setInterval(tick, speed);
+  }
+
+  function placeFood() {
+    do {
+      food = {
+        x: Math.floor(Math.random() * GRID),
+        y: Math.floor(Math.random() * GRID)
+      };
+    } while (snake.some(s => s.x === food.x && s.y === food.y));
+  }
+
+  function updateScore() {
+    scoreEl.textContent = "Score: " + score;
+  }
+
+  function tick() {
+    if (dead || paused) return;
+    dir = nextDir;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+
+    // Wall or self collision
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID ||
+        snake.some(s => s.x === head.x && s.y === head.y)) {
+      dead = true;
+      overlay.style.display = "block";
+      return;
+    }
+
+    snake.unshift(head);
+
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      updateScore();
+      placeFood();
+      // Speed up slightly as the snake grows
+      if (speed > MIN_SPEED) {
+        speed -= 2;
+        clearInterval(timer);
+        timer = setInterval(tick, speed);
+      }
+    } else {
+      snake.pop();
+    }
+
+    draw();
+  }
+
+  function draw() {
+    ctx.fillStyle = "#16213e";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Food
+    ctx.fillStyle = "#ff6b6b";
+    ctx.beginPath();
+    ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, CELL / 2 - 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Snake
+    snake.forEach((s, i) => {
+      ctx.fillStyle = i === 0 ? "#4ecca3" : "#3aa17e";
+      ctx.fillRect(s.x * CELL + 1, s.y * CELL + 1, CELL - 2, CELL - 2);
+    });
+  }
+
+  const KEYS = {
+    ArrowUp: { x: 0, y: -1 },  w: { x: 0, y: -1 },  W: { x: 0, y: -1 },
+    ArrowDown: { x: 0, y: 1 }, s: { x: 0, y: 1 },  S: { x: 0, y: 1 },
+    ArrowLeft: { x: -1, y: 0 },a: { x: -1, y: 0 }, A: { x: -1, y: 0 },
+    ArrowRight: { x: 1, y: 0 },d: { x: 1, y: 0 },  D: { x: 1, y: 0 }
+  };
+
+  document.addEventListener("keydown", (e) => {
+    if (dead && (e.key === " " || e.key === "Enter")) {
+      reset();
+      return;
+    }
+    if (e.key === "p" || e.key === "P") {
+      paused = !paused;
+      return;
+    }
+    const key = KEYS[e.key];
+    if (!key) return;
+    e.preventDefault();
+    // Prevent reversing directly into yourself
+    if (key.x === -dir.x && key.y === -dir.y) return;
+    nextDir = key;
+  });
+
+  reset();
+})();
+</script>
+</body>
+</html>
