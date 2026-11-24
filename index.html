@@ -36,7 +36,7 @@
 </style>
 </head>
 <body>
-  <h1>🐍 SNAKE</h1>
+  <h1>🔥 SNAKE 🔥</h1>
   <div id="score">Score: 0</div>
   <div style="position: relative;">
     <canvas id="board" width="400" height="400"></canvas>
@@ -45,7 +45,7 @@
       <p>Press Space or Enter to restart</p>
     </div>
   </div>
-  <p style="color: #889; font-size: 13px;">Arrow keys or WASD to move &middot; P to pause</p>
+  <p style="color: #889; font-size: 13px;">Arrow keys or WASD to move &middot; P to pause &middot; Avoid the fire and the walls!</p>
 
 <script>
 (function () {
@@ -58,22 +58,52 @@
   const CELL = canvas.width / GRID;
   const BASE_SPEED = 120;       // ms per move at start
   const MIN_SPEED = 60;         // fastest speed cap
+  const START_FIRES = 3;        // fires on the board at reset
+  const MAX_FIRES = 8;          // never more fires than this
+  const NEW_FIRE_EVERY = 50;    // add a fire each time score crosses this
 
-  let snake, dir, nextDir, food, score, speed, timer, dead, paused;
+  let snake, dir, nextDir, food, fires, score, speed, timer, dead, paused, lastFireScore;
 
   function reset() {
     snake = [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }];
     dir = { x: 1, y: 0 };
     nextDir = dir;
     score = 0;
+    lastFireScore = 0;
     speed = BASE_SPEED;
     dead = false;
     paused = false;
     overlay.style.display = "none";
     placeFood();
+    fires = [];
+    for (let i = 0; i < START_FIRES; i++) addFire();
     updateScore();
     clearInterval(timer);
     timer = setInterval(tick, speed);
+  }
+
+  function cellTaken(x, y) {
+    if (food && food.x === x && food.y === y) return true;
+    if (snake.some(s => s.x === x && s.y === y)) return true;
+    if (fires.some(f => f.x === x && f.y === y)) return true;
+    return false;
+  }
+
+  function addFire() {
+    if (fires.length >= MAX_FIRES) return;
+    let x, y, tries = 0;
+    do {
+      x = Math.floor(Math.random() * GRID);
+      y = Math.floor(Math.random() * GRID);
+      tries++;
+    } while ((cellTaken(x, y) || nearHead(x, y)) && tries < 200);
+    fires.push({ x: x, y: y });
+  }
+
+  // Don't spawn a fire right next to the snake's head
+  function nearHead(x, y) {
+    const h = snake[0];
+    return Math.abs(h.x - x) <= 1 && Math.abs(h.y - y) <= 1;
   }
 
   function placeFood() {
@@ -82,7 +112,7 @@
         x: Math.floor(Math.random() * GRID),
         y: Math.floor(Math.random() * GRID)
       };
-    } while (snake.some(s => s.x === food.x && s.y === food.y));
+    } while (cellTaken(food.x, food.y));
   }
 
   function updateScore() {
@@ -94,11 +124,19 @@
     dir = nextDir;
     const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
 
-    // Wall or self collision
-    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID ||
-        snake.some(s => s.x === head.x && s.y === head.y)) {
-      dead = true;
-      overlay.style.display = "block";
+    // Border collision — the walls are deadly
+    if (head.x < 0 || head.x >= GRID || head.y < 0 || head.y >= GRID) {
+      gameOver();
+      return;
+    }
+    // Self collision
+    if (snake.some(s => s.x === head.x && s.y === head.y)) {
+      gameOver();
+      return;
+    }
+    // Fire collision — the fire is deadly
+    if (fires.some(f => f.x === head.x && f.y === head.y)) {
+      gameOver();
       return;
     }
 
@@ -108,6 +146,11 @@
       score += 10;
       updateScore();
       placeFood();
+      // The fire spreads as you score
+      if (score - lastFireScore >= NEW_FIRE_EVERY) {
+        lastFireScore = score;
+        addFire();
+      }
       // Speed up slightly as the snake grows
       if (speed > MIN_SPEED) {
         speed -= 2;
@@ -121,9 +164,30 @@
     draw();
   }
 
+  function gameOver() {
+    dead = true;
+    overlay.style.display = "block";
+  }
+
+  function drawFire(x, y) {
+    const px = x * CELL, py = y * CELL;
+    // Outer glow
+    ctx.fillStyle = "rgba(255, 107, 53, 0.35)";
+    ctx.fillRect(px, py, CELL, CELL);
+    // Body of the flame
+    ctx.fillStyle = "#ff6b35";
+    ctx.fillRect(px + 3, py + 3, CELL - 6, CELL - 6);
+    // Hot core
+    ctx.fillStyle = "#ffd23f";
+    ctx.fillRect(px + 7, py + 7, CELL - 14, CELL - 14);
+  }
+
   function draw() {
     ctx.fillStyle = "#16213e";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Fires
+    fires.forEach(f => drawFire(f.x, f.y));
 
     // Food
     ctx.fillStyle = "#ff6b6b";
